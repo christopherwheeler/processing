@@ -33,7 +33,7 @@ for (s in list_of_all_sites){
   for (index in i_files){
     df_index <- read_csv(filelist[index])
     
-    if (index == i_files[1]){
+    if (index == i_files[1]){sv
       df_site <- df_index
     } else {
       df_site <- bind_rows(df_site, df_index)
