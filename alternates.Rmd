@@ -1,0 +1,145 @@
+---
+title: "Alternate Answers to Data Wrangling Question"
+output: github_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Intro to First Solution
+
+It is hard to reproduce your example so I am taking a guess without being able to verify.
+
+In your code the variable `df_site` gets overwritten in every step of the outer for loop. I would therefore believe that in the end it does not contain the content of the first file but of file three.
+
+To fix your code insert the command `df_site <- list() `before the outer for loop. This will initialize df_site as an empty list that can then be populated step by step in the for loop. To achieve this replace `df_site` by `df_site[[j]] `everywhere inside the outer for loop.
+
+
+```{r}
+# set up
+
+library(tidyverse)
+
+# setwd("C:/Users/Christopher/Desktop/R_Directory/processing/test")
+
+filelist <- list.files(recursive=TRUE)
+
+list_of_all_sites <- c("SFM01_2", "SFM05_2", "02M08_2")
+
+
+
+
+```
+
+## First solution
+
+
+```{r}
+
+df_site <- list()  
+# setwd("C:/Users/Christopher/Desktop/R_Directory/processing/test")
+filelist <- list.files(recursive = TRUE)
+list_of_all_sites <- c("SFM01_2", "SFM05_2", "02M08_2")
+
+for (j in list_of_all_sites) {
+  i_files <- which(str_detect(filelist, j))
+
+  for (index in i_files){
+    df_index <- read_csv(filelist[index])
+
+    if (index == i_files[1]){
+      df_site[[j]] <- df_index
+    } else {
+      df_site[[j]] <- bind_rows(df_site[[j]], df_index)
+    }
+
+  }
+
+}
+
+
+```
+
+After this `df_site` will be a list with three components with each component holding the content of one unified file.
+
+
+## Second Solution (a)
+
+I suggest one of two paths, both predicated on using `list.files(.., full.names=TRUE)`.
+
+First, reproducible setup:
+
+```{r}
+
+dir.create("dir1")
+dir.create("dir2")
+write.csv(mtcars[1:2,], "dir1/SFM01_2.csv", row.names=FALSE)
+write.csv(mtcars[3:4,], "dir1/SFM05_2.csv", row.names=FALSE)
+write.csv(mtcars[5:6,], "dir1/02M08_2.csv", row.names=FALSE)
+write.csv(mtcars[7:8,], "dir2/SFM01_2.csv", row.names=FALSE)
+write.csv(mtcars[9:10,], "dir2/SFM05_2.csv", row.names=FALSE)
+write.csv(mtcars[11:12,], "dir2/02M08_2.csv", row.names=FALSE)
+
+files <- list.files(c("dir1", "dir2"), "\\.csv$", full.names = TRUE, recursive = TRUE)
+files
+
+```
+
+If all of the files are the same structure (same column names, regardless of the number of rows), then putting it all in one frame and doing analysis based on grouped operations (e.g., `dplyr::group_by` or `data.table`'s `[, by=]`).
+
+```{r}
+
+alldat <- lapply(setNames(nm = files), read.csv)
+out1 <- do.call(rbind, Map(function(x, nm) transform(x, filename = nm), alldat, names(alldat)))
+rownames(out1) <- NULL # I dislike the default row names here
+out1
+
+```
+
+If the filename "base" name is important, then you can reassign this into the frame as well.
+
+
+
+```{r}
+
+
+basename(out1$filename)
+
+out1$basename <- basename(out1$filename)
+
+
+```
+
+Alternatives to the do.call(rbind, ...) are available, use either if you prefer.
+
+```{r}
+
+
+out1 <- dplyr::bind_rows(alldat, .id = "filename")
+out1 <- data.table::rbindlist(alldat, idcol = "filename")
+
+
+
+```
+
+## Second Solution (b): split by name
+
+If they are not the same structure, then let's split them before reading them in.
+
+```{r}
+
+split(files, basename(files))
+
+lapply(split(files, basename(files)), function(fewerfiles) {
+  out <- do.call(rbind, lapply(setNames(nm = fewerfiles), read.csv))
+  rownames(out) <- NULL
+  out
+})
+
+```
+
+
+
+
+
